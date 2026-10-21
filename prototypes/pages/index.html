@@ -1,0 +1,301 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, never merge into main.
+  Question: which screens does the BookSwap MVP have, how does a user move between them, and how should they be laid out?
+  Plan: three structurally different variants of the whole site (navigation + catalog + deal page), switchable via ?variant=A|B|C
+  and the floating bottom bar (or ← / → keys). All data is fake and lives in memory; reload resets it.
+  Run: open this file in a browser (double-click it).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BookSwap — pages prototype</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body { padding-bottom: 90px; background: #f6f7f9; }
+  .cover { height: 140px; display:flex; align-items:center; justify-content:center; font-size:42px; border-radius:6px; }
+  .cover-sm { width:48px; height:64px; font-size:22px; flex:none; }
+  .sidebar { width: 220px; min-height: 100vh; position: sticky; top: 0; }
+  .mobile { max-width: 480px; margin: 0 auto; background:#fff; min-height:100vh; padding-bottom: 70px; }
+  .tabbar { position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; z-index: 10; }
+  .chat { height: 260px; overflow-y: auto; background:#fff; }
+  .msg-me { text-align: right; } .msg-me span { background:#0d6efd; color:#fff; }
+  .msg span { display:inline-block; padding:4px 10px; border-radius:12px; background:#e9ecef; margin:2px 0; }
+  .step { flex:1; text-align:center; font-size:12px; padding:6px 2px; border-bottom:3px solid #dee2e6; color:#6c757d; }
+  .step.done { border-color:#198754; color:#198754; } .step.now { border-color:#0d6efd; color:#0d6efd; font-weight:600; }
+  #proto-bar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 1000;
+    background: #111; color: #fff; border-radius: 999px; padding: 6px 10px; box-shadow: 0 4px 16px rgba(0,0,0,.35);
+    display:flex; align-items:center; gap:10px; font: 13px/1.2 system-ui, sans-serif; }
+  #proto-bar button { background:#333; color:#fff; border:0; border-radius:999px; width:32px; height:32px; }
+  #proto-bar .state { color:#9ad; font-size:11px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="proto-bar">
+  <button id="prev" title="previous variant (←)">◀</button>
+  <div><div id="vlabel"></div><div class="state" id="vstate"></div></div>
+  <button id="next" title="next variant (→)">▶</button>
+</div>
+
+<script>
+// ---------- fake data (in memory) ----------
+const ME = 'alice';
+const S = {
+  users: {
+    alice: { nick:'alice', city:'Riga', about:'Sci-fi and classics.', done:4, lost:0 },
+    bob:   { nick:'bob', city:'Riga', about:'Mostly fantasy.', done:11, lost:1 },
+    kate:  { nick:'kate', city:'Tallinn', about:'Detective novels, any language.', done:2, lost:0 },
+  },
+  books: [
+    { id:1, title:'Dune', author:'Frank Herbert', genre:'Sci-fi', cond:'Good', owner:'bob', trade:true, price:8, c:'#f4d58d', e:'🏜️' },
+    { id:2, title:'The Hobbit', author:'J. R. R. Tolkien', genre:'Fantasy', cond:'Like new', owner:'bob', trade:true, price:null, c:'#b7e4c7', e:'🐉' },
+    { id:3, title:'Murder on the Orient Express', author:'Agatha Christie', genre:'Detective', cond:'Worn', owner:'kate', trade:false, price:0, c:'#cdb4db', e:'🚂' },
+    { id:4, title:'1984', author:'George Orwell', genre:'Classic', cond:'Good', owner:'alice', trade:true, price:null, c:'#ffc8dd', e:'👁️' },
+    { id:5, title:'Foundation', author:'Isaac Asimov', genre:'Sci-fi', cond:'Good', owner:'alice', trade:true, price:6, c:'#a2d2ff', e:'🌌' },
+    { id:6, title:'Neuromancer', author:'William Gibson', genre:'Sci-fi', cond:'Like new', owner:'alice', trade:false, price:null, c:'#bde0fe', e:'💾' },
+    { id:7, title:'The Name of the Rose', author:'Umberto Eco', genre:'Detective', cond:'Good', owner:'kate', trade:true, price:5, c:'#ffafcc', e:'🌹' },
+  ],
+  deals: [
+    { id:1, kind:'trade', with:'bob', status:'offer', turn:'me', mine:[4], theirs:[2], deposit:10,
+      chat:[{f:'bob',t:'Hi! Would you take 1984 for The Hobbit?'}] },
+    { id:2, kind:'trade', with:'kate', status:'shipping', mine:[5], theirs:[7], deposit:15, iShipped:false, theyShipped:true,
+      chat:[{f:'kate',t:'Sent mine to the locker at Old Town.'},{f:'alice',t:'Great, sending tomorrow.'}] },
+    { id:3, kind:'purchase', with:'bob', status:'done', theirs:[1], price:8, chat:[{f:'bob',t:'Enjoy!'}] },
+  ],
+  wallet: { balance: 54.5, frozen: 18.5, history: [
+    { d:'Oct 20', t:'Deposit frozen — trade with kate', a:-15 }, { d:'Oct 20', t:'Shipping — trade with kate', a:-3 },
+    { d:'Oct 20', t:'Commission — trade with kate', a:-0.5 }, { d:'Oct 18', t:'Top up', a:+50 },
+  ]},
+  notes: [
+    { t:'bob sent you a counter-offer', link:'#/deal/1', unread:true },
+    { t:'kate marked her parcel as shipped', link:'#/deal/2', unread:true },
+    { t:'Purchase of “Dune” completed', link:'#/deal/3', unread:false },
+  ],
+};
+const book = id => S.books.find(b => b.id == id);
+const deal = id => S.deals.find(d => d.id == id);
+const LOCKERS = ['Riga — Old Town', 'Riga — Central Station', 'Tallinn — Viru Keskus', 'Tallinn — Ülemiste'];
+
+// ---------- variant + routing ----------
+const VARIANTS = { A:'Top navbar · card grid · stacked deal', B:'Sidebar app · list + filters · deal with side chat', C:'Mobile-first · tab bar · tabbed deal' };
+const KEYS = Object.keys(VARIANTS);
+const params = new URLSearchParams(location.search);
+let V = KEYS.includes(params.get('variant')) ? params.get('variant') : 'A';
+function setVariant(v) { V = v; params.set('variant', v); history.replaceState(null, '', '?' + params + location.hash); render(); }
+function route() { return (location.hash.slice(2) || 'catalog').split('/'); }
+
+// ---------- shared bits ----------
+const cover = (b, sm) => `<div class="cover ${sm ? 'cover-sm' : ''}" style="background:${b.c}">${b.e}</div>`;
+const flags = b => `${b.trade ? '<span class="badge text-bg-primary me-1">Trade</span>' : ''}${b.price !== null ? `<span class="badge text-bg-success">${b.price === 0 ? 'Free' : '€' + b.price}</span>` : ''}${!b.trade && b.price === null ? '<span class="badge text-bg-secondary">Not offered</span>' : ''}`;
+const unread = () => S.notes.filter(n => n.unread).length;
+const statusLabel = d => ({ offer: d.turn === 'me' ? 'Your move: accept / decline / counter' : 'Waiting for ' + d.with,
+  shipping:'Shipping (5 days)', delivered:'Delivered — 2 days to report a problem', done:'Completed', dispute:'Dispute — administrator decides' })[d.status];
+const catalogBooks = () => {
+  const q = (params.get('q') || '').toLowerCase();
+  return S.books.filter(b => b.owner !== ME && (b.trade || b.price !== null) && (!q || (b.title + b.author).toLowerCase().includes(q)));
+};
+
+// ---------- pages ----------
+const P = {
+  catalog() {
+    const bs = catalogBooks();
+    const filters = `<input class="form-control mb-2" placeholder="Search title or author" value="${params.get('q') || ''}" onchange="params.set('q',this.value);render()">
+      <select class="form-select mb-2"><option>All genres</option><option>Sci-fi</option><option>Fantasy</option><option>Detective</option><option>Classic</option></select>
+      <select class="form-select mb-2"><option>All cities</option><option>Riga</option><option>Tallinn</option></select>
+      <div class="form-check"><input class="form-check-input" type="checkbox" checked id="ft"><label class="form-check-label" for="ft">Tradeable</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" checked id="fs"><label class="form-check-label" for="fs">For sale</label></div>`;
+    if (V === 'A') return `<h4>Catalog</h4><div class="row g-2 mb-3"><div class="col-md-6"><input class="form-control" placeholder="Search title or author" value="${params.get('q') || ''}" onchange="params.set('q',this.value);render()"></div>
+      <div class="col"><select class="form-select"><option>All genres</option></select></div><div class="col"><select class="form-select"><option>All cities</option></select></div></div>
+      <div class="row row-cols-2 row-cols-md-4 g-3">${bs.map(b => `<div class="col"><a href="#/book/${b.id}" class="card h-100 text-decoration-none text-body">
+      <div class="p-2">${cover(b)}</div><div class="card-body pt-0"><div class="fw-semibold">${b.title}</div><div class="small text-muted">${b.author}</div>
+      <div class="small">${S.users[b.owner].city} · @${b.owner}</div><div class="mt-1">${flags(b)}</div></div></a></div>`).join('')}</div>`;
+    if (V === 'B') return `<div class="row"><div class="col-md-3"><div class="card card-body">${filters}</div></div><div class="col-md-9">
+      <table class="table table-hover bg-white align-middle"><thead><tr><th></th><th>Title</th><th>Genre</th><th>Condition</th><th>Owner</th><th>Offer</th></tr></thead><tbody>
+      ${bs.map(b => `<tr style="cursor:pointer" onclick="location.hash='#/book/${b.id}'"><td>${cover(b, 1)}</td><td><b>${b.title}</b><br><small class="text-muted">${b.author}</small></td>
+      <td>${b.genre}</td><td>${b.cond}</td><td>@${b.owner}<br><small>${S.users[b.owner].city}</small></td><td>${flags(b)}</td></tr>`).join('')}</tbody></table></div></div>`;
+    return `<div class="p-3"><input class="form-control mb-2" placeholder="🔍 Search books" value="${params.get('q') || ''}" onchange="params.set('q',this.value);render()">
+      <div class="d-flex gap-1 overflow-auto mb-3">${['All','Sci-fi','Fantasy','Detective','Riga','Tallinn','Free'].map((c, i) => `<span class="badge rounded-pill ${i ? 'text-bg-light border' : 'text-bg-dark'}">${c}</span>`).join('')}</div>
+      ${bs.map(b => `<a href="#/book/${b.id}" class="d-flex gap-2 py-2 border-bottom text-decoration-none text-body">${cover(b, 1)}<div><div class="fw-semibold">${b.title}</div>
+      <div class="small text-muted">${b.author} · ${S.users[b.owner].city}</div>${flags(b)}</div></a>`).join('')}</div>`;
+  },
+  book([, id]) {
+    const b = book(id), o = S.users[b.owner];
+    return wrap(`<div class="row g-3"><div class="col-md-4">${cover(b)}</div><div class="col-md-8"><h4>${b.title}</h4><div class="text-muted">${b.author}</div>
+      <p class="mt-2">Genre: ${b.genre} · Condition: ${b.cond}</p><p>${flags(b)}</p>
+      <p>Owner: <a href="#/user/${o.nick}">@${o.nick}</a> (${o.city}) — ${o.done} completed deals, ${o.lost} lost disputes</p>
+      ${b.owner === ME ? `<a class="btn btn-outline-secondary" href="#/book-form/${b.id}">Edit</a>` : `
+      ${b.trade ? `<a class="btn btn-primary me-2" href="#/trade/${b.id}">Propose a trade</a>` : ''}
+      ${b.price !== null ? `<a class="btn btn-success" href="#/buy/${b.id}">Buy for ${b.price === 0 ? 'free' : '€' + b.price} + €3 shipping</a>` : ''}`}</div></div>`);
+  },
+  user([, nick]) {
+    const u = S.users[nick], bs = S.books.filter(b => b.owner === nick);
+    return wrap(`<h4>@${u.nick} <small class="text-muted fs-6">${u.city}</small></h4><p>${u.about}</p>
+      <p><span class="badge text-bg-light border">✅ ${u.done} completed deals</span> <span class="badge text-bg-light border">⚠️ ${u.lost} lost disputes</span></p>
+      <h5>Gallery</h5><div class="list-group">${bs.map(b => `<a href="#/book/${b.id}" class="list-group-item list-group-item-action d-flex gap-2 align-items-center">${cover(b, 1)}<div><b>${b.title}</b><br><small>${b.author}</small></div><div class="ms-auto">${flags(b)}</div></a>`).join('')}</div>`);
+  },
+  'my-gallery'() {
+    const bs = S.books.filter(b => b.owner === ME);
+    return wrap(`<div class="d-flex justify-content-between align-items-center mb-2"><h4 class="m-0">My gallery</h4><a class="btn btn-primary btn-sm" href="#/book-form">+ Add book</a></div>
+      <div class="list-group">${bs.map(b => `<div class="list-group-item d-flex gap-2 align-items-center">${cover(b, 1)}<div><b>${b.title}</b><br><small>${b.author}</small><div>${flags(b)}</div></div>
+      <div class="ms-auto"><a href="#/book-form/${b.id}" class="btn btn-sm btn-outline-secondary">Edit</a></div></div>`).join('')}</div>
+      <p class="small text-muted mt-2">Books received in a deal arrive here as “Not offered”.</p>`);
+  },
+  'book-form'([, id]) {
+    const b = id ? book(id) : { title:'', author:'', trade:true, price:null };
+    return wrap(`<h4>${id ? 'Edit book' : 'Add book'}</h4><div class="card card-body" style="max-width:520px">
+      <label class="form-label">Title</label><input class="form-control mb-2" value="${b.title}">
+      <label class="form-label">Author</label><input class="form-control mb-2" value="${b.author}">
+      <div class="row"><div class="col"><label class="form-label">Genre</label><select class="form-select mb-2"><option>Sci-fi</option><option>Fantasy</option><option>Detective</option><option>Classic</option></select></div>
+      <div class="col"><label class="form-label">Condition</label><select class="form-select mb-2"><option>Like new</option><option>Good</option><option>Worn</option></select></div></div>
+      <label class="form-label">Photo (one)</label><input type="file" class="form-control mb-3">
+      <div class="form-check"><input class="form-check-input" type="checkbox" ${b.trade ? 'checked' : ''} id="t"><label class="form-check-label" for="t">Open to trades</label></div>
+      <div class="form-check mb-1"><input class="form-check-input" type="checkbox" ${b.price !== null ? 'checked' : ''} id="s"><label class="form-check-label" for="s">For sale</label></div>
+      <div class="input-group mb-3" style="max-width:200px"><span class="input-group-text">€</span><input class="form-control" value="${b.price ?? ''}" placeholder="0 = free"></div>
+      <a class="btn btn-primary" href="#/my-gallery">Save</a></div>`);
+  },
+  trade([, id, dealId]) {
+    const target = id === 'counter' ? null : book(id), d = dealId ? deal(dealId) : null;
+    const other = d ? d.with : target.owner;
+    const theirs = S.books.filter(b => b.owner === other && b.trade), mine = S.books.filter(b => b.owner === ME && b.trade);
+    const pick = (b, sel) => `<label class="list-group-item d-flex gap-2 align-items-center"><input class="form-check-input" type="checkbox" ${sel ? 'checked' : ''} onchange="recalc()">${cover(b, 1)}<span>${b.title}</span></label>`;
+    const selTheirs = d ? d.theirs : [target.id], selMine = d ? d.mine : [];
+    return wrap(`<h4>${d ? 'Counter-offer to' : 'Propose a trade to'} @${other}</h4>
+      <div class="row g-3"><div class="col-md-6"><h6>You give</h6><div class="list-group" id="mine">${mine.map(b => pick(b, selMine.includes(b.id))).join('')}</div></div>
+      <div class="col-md-6"><h6>You get (from @${other})</h6><div class="list-group">${theirs.map(b => pick(b, selTheirs.includes(b.id))).join('')}</div></div></div>
+      <div class="card card-body mt-3" style="max-width:520px">
+      <label class="form-label">Deposit per side (min €10 per book you send)</label>
+      <div class="input-group mb-2" style="max-width:200px"><span class="input-group-text">€</span><input id="dep" class="form-control" value="${d ? d.deposit : 10}"></div>
+      <div class="small text-muted mb-2" id="mindep"></div>
+      <div class="small mb-2">On acceptance we freeze: deposit + €3 shipping per parcel + €0.50 commission. Wallet balance: €${S.wallet.balance}.</div>
+      <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="ok5"><label class="form-check-label" for="ok5">I can ship my books within 5 days</label></div>
+      <a class="btn btn-primary" href="#/deals">Send ${d ? 'counter-offer' : 'trade offer'}</a></div>`) + `<script>recalc()<\/script>`;
+  },
+  buy([, id]) {
+    const b = book(id);
+    return wrap(`<h4>Buy “${b.title}”</h4><div class="card card-body" style="max-width:520px">
+      <div class="d-flex gap-2 mb-2">${cover(b, 1)}<div>${b.title}<br><small>from @${b.owner}</small></div></div>
+      <table class="table table-sm"><tr><td>Price</td><td class="text-end">€${b.price}</td></tr><tr><td>Shipping</td><td class="text-end">€3</td></tr>
+      <tr class="fw-bold"><td>Frozen until you confirm receipt</td><td class="text-end">€${b.price + 3}</td></tr></table>
+      <label class="form-label">Deliver to parcel locker</label><select class="form-select mb-3">${LOCKERS.map(l => `<option>${l}</option>`).join('')}</select>
+      <a class="btn btn-success" href="#/deals">Confirm purchase</a></div>`);
+  },
+  deals() {
+    const row = d => `<a href="#/deal/${d.id}" class="list-group-item list-group-item-action"><div class="d-flex justify-content-between"><b>${d.kind === 'trade' ? '⇄ Trade' : '🛒 Purchase'} with @${d.with}</b>
+      <span class="badge ${d.status === 'done' ? 'text-bg-secondary' : 'text-bg-warning'}">${statusLabel(d)}</span></div>
+      <small>${(d.mine || []).map(i => book(i).title).join(', ')}${d.mine ? ' ⇄ ' : ''}${d.theirs.map(i => book(i).title).join(', ')}</small></a>`;
+    const groups = [['Offers', d => d.status === 'offer'], ['Active', d => ['shipping', 'delivered', 'dispute'].includes(d.status)], ['Completed', d => d.status === 'done']];
+    return wrap(`<h4>My deals</h4>${groups.map(([g, f]) => `<h6 class="mt-3">${g}</h6><div class="list-group">${S.deals.filter(f).map(row).join('') || '<div class="list-group-item text-muted">Nothing here</div>'}</div>`).join('')}`);
+  },
+  deal([, id]) {
+    const d = deal(id);
+    const steps = d.kind === 'trade' ? ['offer', 'shipping', 'delivered', 'done'] : ['shipping', 'delivered', 'done'];
+    const ix = steps.indexOf(d.status);
+    const stepper = `<div class="d-flex mb-3">${steps.map((s, i) => `<div class="step ${i < ix ? 'done' : i === ix ? 'now' : ''}">${s}</div>`).join('')}</div>`;
+    const terms = `<div class="card card-body mb-3"><h6>Terms</h6>
+      ${d.mine ? `<div>You give: ${d.mine.map(i => `<b>${book(i).title}</b>`).join(', ')}</div>` : ''}
+      <div>You get: ${d.theirs.map(i => `<b>${book(i).title}</b>`).join(', ')}</div>
+      ${d.kind === 'trade' ? `<div>Deposit per side: €${d.deposit}</div>` : `<div>Price: €${d.price} + €3 shipping</div>`}</div>`;
+    let actions = '';
+    if (d.status === 'offer') actions = `<button class="btn btn-success me-2" onclick="act(${d.id},'accept')">Accept</button><a class="btn btn-outline-primary me-2" href="#/trade/counter/${d.id}">Counter-offer</a><button class="btn btn-outline-danger" onclick="act(${d.id},'decline')">Decline</button>
+      <div class="small text-muted mt-2">Accepting freezes your deposit, €3 shipping and €0.50 commission, and commits you to ship within 5 days.</div>`;
+    if (d.status === 'shipping') actions = d.iShipped ? `<div class="alert alert-info m-0">You shipped. Parcel will be “delivered” automatically (accelerated time).</div>` : `
+      <label class="form-label">Parcel locker</label><select class="form-select mb-2">${LOCKERS.map(l => `<option>${l}</option>`).join('')}</select>
+      <input class="form-control mb-2" placeholder="Tracking number"><button class="btn btn-primary" onclick="act(${d.id},'ship')">I shipped my parcel</button>
+      <div class="small text-muted mt-2">${d.theyShipped ? '@' + d.with + ' already shipped.' : '@' + d.with + ' has not shipped yet.'} 4 days 6 h left.</div>`;
+    if (d.status === 'delivered') actions = `<div class="alert alert-success">Your parcel arrived. You have 2 days to report a problem — silence means all good.</div>
+      <button class="btn btn-success me-2" onclick="act(${d.id},'ok')">All good</button><button class="btn btn-outline-danger" onclick="act(${d.id},'problem')">Report a problem</button>`;
+    if (d.status === 'dispute') actions = `<div class="alert alert-warning m-0">Problem reported: “Wrong book”. Money stays frozen until the administrator decides.</div>`;
+    if (d.status === 'done') actions = `<div class="alert alert-secondary m-0">Completed. Deposits returned; books moved to the new owners' galleries.</div>`;
+    const chat = `<div class="card"><div class="card-header">Chat with @${d.with} <small class="text-muted">(refreshes every 3 s)</small></div>
+      <div class="chat p-2" id="chat">${d.chat.map(m => `<div class="msg ${m.f === ME ? 'msg-me' : ''}"><span>${m.t}</span></div>`).join('')}</div>
+      <div class="card-footer d-flex gap-2"><input id="msg" class="form-control form-control-sm" placeholder="Message"><button class="btn btn-sm btn-primary" onclick="say(${d.id})">Send</button></div></div>`;
+    const title = `<h4>${d.kind === 'trade' ? 'Trade' : 'Purchase'} with <a href="#/user/${d.with}">@${d.with}</a></h4><p class="text-muted">${statusLabel(d)}</p>`;
+    const act_ = `<div class="card card-body mb-3"><h6>What now</h6>${actions}</div>`;
+    if (V === 'A') return `${title}${stepper}${terms}${act_}${chat}`;
+    if (V === 'B') return `<div class="row g-3"><div class="col-lg-7">${title}${stepper}${act_}${terms}</div><div class="col-lg-5"><div style="position:sticky;top:10px">${chat}</div></div></div>`;
+    const tab = params.get('tab') || 'status';
+    return `<div class="p-3">${title}<ul class="nav nav-tabs mb-3">${['status', 'terms', 'chat'].map(t => `<li class="nav-item"><a class="nav-link ${tab === t ? 'active' : ''}" href="javascript:params.set('tab','${t}');render()">${t}</a></li>`).join('')}</ul>
+      ${tab === 'status' ? stepper + act_ : tab === 'terms' ? terms : chat}</div>`;
+  },
+  wallet() {
+    const w = S.wallet;
+    return wrap(`<h4>Wallet</h4><div class="row g-3 mb-3"><div class="col-6 col-md-3"><div class="card card-body"><small>Available</small><div class="fs-4">€${w.balance.toFixed(2)}</div></div></div>
+      <div class="col-6 col-md-3"><div class="card card-body"><small>Frozen in deals</small><div class="fs-4">€${w.frozen.toFixed(2)}</div></div></div></div>
+      <div class="d-flex gap-2 mb-3"><button class="btn btn-success" onclick="topup()">Top up €20 (play money)</button><button class="btn btn-outline-secondary">Withdraw</button></div>
+      <table class="table bg-white"><thead><tr><th>Date</th><th>Operation</th><th class="text-end">Amount</th></tr></thead><tbody>
+      ${w.history.map(h => `<tr><td>${h.d}</td><td>${h.t}</td><td class="text-end ${h.a > 0 ? 'text-success' : ''}">${h.a > 0 ? '+' : ''}€${h.a.toFixed(2)}</td></tr>`).join('')}</tbody></table>`);
+  },
+  notifications() {
+    return wrap(`<h4>Notifications</h4><div class="list-group">${S.notes.map((n, i) => `<a href="${n.link}" onclick="S.notes[${i}].unread=false" class="list-group-item list-group-item-action ${n.unread ? 'fw-semibold' : ''}">${n.unread ? '🔵 ' : ''}${n.t}</a>`).join('')}</div>`);
+  },
+  login() {
+    return wrap(`<div class="card card-body mx-auto" style="max-width:380px"><h4>Log in</h4><input class="form-control mb-2" placeholder="Email"><input type="password" class="form-control mb-3" placeholder="Password">
+      <a class="btn btn-primary mb-2" href="#/catalog">Log in</a><small>No account? <a href="#/register">Register</a>. Forgot password? Ask the administrator.</small></div>`);
+  },
+  register() {
+    return wrap(`<div class="card card-body mx-auto" style="max-width:380px"><h4>Register</h4><input class="form-control mb-2" placeholder="Nickname (public)"><input class="form-control mb-2" placeholder="Email (private)">
+      <input type="password" class="form-control mb-2" placeholder="Password"><input class="form-control mb-3" placeholder="City"><a class="btn btn-primary" href="#/catalog">Create account</a></div>`);
+  },
+  settings() {
+    const u = S.users[ME];
+    return wrap(`<h4>Profile settings</h4><div class="card card-body" style="max-width:520px"><label class="form-label">Nickname</label><input class="form-control mb-2" value="${u.nick}">
+      <label class="form-label">City</label><input class="form-control mb-2" value="${u.city}"><label class="form-label">About</label><textarea class="form-control mb-3">${u.about}</textarea>
+      <a class="btn btn-primary" href="#/user/${ME}">Save</a></div><p class="small text-muted mt-2">Administrator screens (disputes, password reset, site account) live in the built-in Django admin — not drawn here.</p>`);
+  },
+};
+const wrap = html => V === 'C' ? `<div class="p-3">${html}</div>` : html;
+
+// ---------- in-memory actions ----------
+function act(id, a) {
+  const d = deal(id);
+  if (a === 'accept') { d.status = 'shipping'; d.iShipped = false; d.theyShipped = false; S.wallet.balance -= d.deposit + 3.5; S.wallet.frozen += d.deposit + 3; }
+  if (a === 'decline') { S.deals = S.deals.filter(x => x !== d); location.hash = '#/deals'; }
+  if (a === 'ship') { d.iShipped = true; if (d.theyShipped) setTimeout(() => { d.status = 'delivered'; render(); }, 1500); }
+  if (a === 'ok') { d.status = 'done'; S.wallet.balance += d.deposit || 0; S.wallet.frozen -= d.deposit || 0; }
+  if (a === 'problem') d.status = 'dispute';
+  render();
+}
+function say(id) { const i = document.getElementById('msg'); if (!i.value) return; deal(id).chat.push({ f:ME, t:i.value }); render(); }
+function topup() { S.wallet.balance += 20; S.wallet.history.unshift({ d:'Today', t:'Top up', a:20 }); render(); }
+function recalc() {
+  const n = document.querySelectorAll('#mine input:checked').length, el = document.getElementById('mindep');
+  if (el) el.textContent = `You send ${n} book(s) → minimum deposit €${Math.max(n, 1) * 10}.`;
+}
+
+// ---------- shells (structurally different per variant) ----------
+function navLinks(cls) {
+  return [['catalog', '📚 Catalog'], ['my-gallery', '🖼️ My gallery'], ['deals', '⇄ My deals'], ['wallet', `👛 €${S.wallet.balance.toFixed(2)}`], ['notifications', `🔔 ${unread() || ''}`]]
+    .map(([r, l]) => `<a class="${cls} ${route()[0] === r ? 'active' : ''}" href="#/${r}">${l}</a>`).join('');
+}
+function shell(content) {
+  if (V === 'A') return `<nav class="navbar navbar-expand bg-dark navbar-dark mb-3"><div class="container"><a class="navbar-brand" href="#/catalog">BookSwap</a>
+    <div class="navbar-nav me-auto">${navLinks('nav-link')}</div><div class="navbar-nav"><a class="nav-link" href="#/user/${ME}">@${ME}</a><a class="nav-link" href="#/settings">⚙️</a><a class="nav-link" href="#/login">Log out</a></div></div></nav>
+    <div class="container">${content}</div>`;
+  if (V === 'B') return `<div class="d-flex"><div class="sidebar bg-white border-end p-3 d-flex flex-column"><a href="#/catalog" class="fs-5 fw-bold text-decoration-none mb-3">📗 BookSwap</a>
+    <div class="nav nav-pills flex-column gap-1">${navLinks('nav-link')}</div><div class="mt-auto small"><a href="#/user/${ME}">@${ME}</a> · <a href="#/settings">Settings</a> · <a href="#/login">Log out</a></div></div>
+    <div class="flex-grow-1 p-4">${content}</div></div>`;
+  return `<div class="mobile"><div class="d-flex justify-content-between align-items-center p-2 border-bottom"><b>BookSwap</b><a href="#/settings" class="text-decoration-none">@${ME} ⚙️</a></div>${content}
+    <div class="tabbar bg-white border-top d-flex justify-content-around py-2 small">${navLinks('text-decoration-none text-center')}</div></div>`;
+}
+
+// ---------- render ----------
+function render() {
+  const r = route();
+  const page = P[r[0]] || P.catalog;
+  document.getElementById('app').innerHTML = shell(page(r));
+  document.querySelectorAll('#app script').forEach(s => eval(s.textContent));
+  document.getElementById('vlabel').textContent = `${V} (${VARIANTS[V]})`;
+  document.getElementById('vstate').textContent = `page: #/${r.join('/')} · wallet €${S.wallet.balance.toFixed(2)} (frozen €${S.wallet.frozen.toFixed(2)}) · unread ${unread()}`;
+  const c = document.getElementById('chat'); if (c) c.scrollTop = c.scrollHeight;
+}
+const cycle = s => setVariant(KEYS[(KEYS.indexOf(V) + s + KEYS.length) % KEYS.length]);
+document.getElementById('prev').onclick = () => cycle(-1);
+document.getElementById('next').onclick = () => cycle(1);
+addEventListener('keydown', e => { if (e.target.closest('input,textarea,select,[contenteditable]')) return; if (e.key === 'ArrowLeft') cycle(-1); if (e.key === 'ArrowRight') cycle(1); });
+addEventListener('hashchange', render);
+render();
+</script>
+</body>
+</html>
