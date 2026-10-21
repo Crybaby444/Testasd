@@ -1,79 +1,79 @@
-# КнигоОбмен
+# BookSwap (КнигоОбмен)
 
-Сайт, где пользователи держат галереи своих бумажных книг, обмениваются ими и продают их друг другу с пересылкой через пакоматы.
+A site where users keep galleries of their paper books, trade them and sell them to each other, shipping through parcel lockers. English terms are canonical (they match the UI and the code); the Russian equivalent follows in parentheses.
 
 ## Language
 
-### Книги
+### Books
 
-**Книга**:
-Конкретный бумажный экземпляр, принадлежащий одному пользователю; у двух людей одно и то же произведение — это две разные книги.
-_Avoid_: Объявление, лот, товар
+**Book** (Книга):
+A specific physical copy owned by one user; two people with the same title hold two different books.
+_Avoid_: Listing, lot, item, объявление, лот, товар
 
-**Галерея**:
-Все книги одного пользователя, показанные другим пользователям.
-_Avoid_: Полка, коллекция, каталог пользователя
+**Gallery** (Галерея):
+All books of one user, shown to other users.
+_Avoid_: Shelf, collection, полка, коллекция
 
-### Сделки
+### Deals
 
-**Трейд**:
-Предложение обменяться книгами между двумя пользователями, с одной или несколькими книгами с каждой стороны; стороны могут менять его состав, пока одна не примет или не отклонит.
-_Avoid_: Запрос, обмен (как сущность), заявка
+**Trade** (Трейд):
+An offer to swap books between two users, with one or more books on each side; the sides may change its terms until one of them accepts or declines.
+_Avoid_: Request, exchange (as an entity), запрос, заявка
 
-**Встречное предложение**:
-Изменённый состав трейда, который получатель отправляет обратно вместо того, чтобы принять или отклонить.
-_Avoid_: Контрпредложение, торг
+**Counter-offer** (Встречное предложение):
+Changed terms of a trade that the recipient sends back instead of accepting or declining.
+_Avoid_: Haggle, контрпредложение, торг
 
-**Покупка**:
-Приобретение книги из чужой галереи за деньги по цене, указанной владельцем; цена может быть 0 €.
-_Avoid_: Заказ, продажа (как сущность)
+**Purchase** (Покупка):
+Buying a book from another user's gallery at the price set by its owner; the price may be 0 €.
+_Avoid_: Order, sale (as an entity), заказ
 
-**Сделка**:
-Общее название для трейда и покупки.
-_Avoid_: Транзакция
+**Deal** (Сделка):
+The common name for a trade or a purchase.
+_Avoid_: Transaction, транзакция
 
-### Деньги
+### Money
 
-**Кошелёк**:
-Внутренний счёт пользователя на сайте, через который проходят все денежные операции.
-_Avoid_: Баланс, аккаунт
+**Wallet** (Кошелёк):
+A user's internal account on the site through which all money operations pass.
+_Avoid_: Balance, account, баланс
 
-**Залог**:
-Сумма, замороженная в кошельке участника сделки до тех пор, пока обе стороны не подтвердят получение книг.
-_Avoid_: Депозит, гарантия
+**Deposit** (Залог):
+An amount frozen in a deal participant's wallet until both sides confirm they received the books.
+_Avoid_: Guarantee, collateral, депозит, гарантия
 
-**Комиссия**:
-Доля, которую сайт удерживает с каждой денежной операции.
-_Avoid_: Сбор, плата сервиса
+**Commission** (Комиссия):
+The share the site keeps from a money operation.
+_Avoid_: Fee, service charge, сбор
 
-**Счёт сайта**:
-Счёт, на который поступают комиссии и деньги, конфискованные у заблокированных пользователей.
-_Avoid_: Счёт компании, касса, прибыль
+**Site account** (Счёт сайта):
+The account that receives commissions and money confiscated from blocked users.
+_Avoid_: Company account, revenue, счёт компании, касса
 
-### Люди
+### People
 
-**Гость**:
-Посетитель, не вошедший в аккаунт; может только смотреть каталог и галереи.
-_Avoid_: Аноним, незарегистрированный
+**Guest** (Гость):
+A visitor who is not logged in; can only browse the catalog and galleries.
+_Avoid_: Anonymous, visitor, аноним
 
-**Пользователь**:
-Зарегистрированный участник с галереей, кошельком и сделками; публично известен по нику.
-_Avoid_: Клиент, юзер, аккаунт, участник (как роль)
+**User** (Пользователь):
+A registered participant with a gallery, a wallet and deals; publicly known by a nickname.
+_Avoid_: Customer, client, account, клиент, юзер
 
-**Блокировка**:
-Состояние пользователя, которому администратор запретил входить на сайт и начинать новые сделки.
-_Avoid_: Бан, удаление
+**Administrator** (Администратор):
+A staff account that resolves disputes and blocks users; never takes part in deals.
+_Avoid_: Moderator, admin (in prose), модератор
 
-**Апелляция**:
-Единственное обращение заблокированного пользователя к администратору с просьбой снять блокировку.
-_Avoid_: Обжалование, жалоба, разблокировка (как запрос)
+**Block** (Блокировка):
+The state of a user whom the administrator has barred from logging in and starting new deals.
+_Avoid_: Ban, deletion, бан
 
-### Споры
+**Appeal** (Апелляция):
+A blocked user's single request to the administrator to lift the block.
+_Avoid_: Complaint, обжалование, жалоба
 
-**Спор**:
-Состояние сделки, в котором получатель сообщил о проблеме с полученной посылкой; деньги остаются замороженными до решения администратора.
-_Avoid_: Жалоба, разбирательство, претензия
+### Disputes
 
-**Администратор**:
-Служебный аккаунт, который разбирает споры и блокирует пользователей; сам в сделках не участвует.
-_Avoid_: Модератор, админ
+**Dispute** (Спор):
+The state of a deal in which a recipient reported a problem with a received parcel; money stays frozen until the administrator decides.
+_Avoid_: Complaint, claim, жалоба, разбирательство, претензия
